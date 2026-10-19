@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BTC Radar</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BTC Radar">
+<meta name="theme-color" content="#0b0f14">
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: jedan stupac za mobitel; ploča odluke na vrhu, zatim graf, tablica okvira, futures podaci, kalkulator. */
+:root{
+  --bg:#0b0f14; --panel:#121820; --line:#1f2832; --fg:#e6edf3; --muted:#8b98a5;
+  --bull:#26c281; --bear:#f0524f; --warn:#e8b13a; --accent:#5aa9ff;
+  --ui:"Barlow Semi Condensed",system-ui,-apple-system,sans-serif;
+  --num:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg)}
+body{font-family:var(--ui);font-size:16px;line-height:1.35;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));
+  padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));
+  -webkit-text-size-adjust:100%}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums}
+main{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;padding-top:10px}
+.brand{font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:13px;color:var(--muted)}
+.price{font-size:32px;font-weight:600;line-height:1}
+.chg{font-size:14px}
+.conn{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.on{background:var(--bull)} .dot.off{background:var(--bear)}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+h2{margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.up{color:var(--bull)} .down{color:var(--bear)} .flat{color:var(--muted)} .warn{color:var(--warn)}
+/* Ploča odluke */
+.verdict{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center}
+.gauge{width:96px;height:96px}
+.vlabel{font-size:26px;font-weight:700;line-height:1.05}
+.vsub{color:var(--muted);font-size:14px}
+.reasons{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.reasons li{display:flex;gap:8px}
+.reasons .tag{flex:none;width:18px;text-align:center;font-weight:700}
+/* Graf */
+.tfs{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.tfs button,.seg button{font:600 14px var(--ui);color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer}
+.tfs button.on,.seg button.on{color:var(--bg);background:var(--fg);border-color:var(--fg)}
+#chart{height:340px;width:100%}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:2px;vertical-align:middle;margin-right:4px}
+/* Tablice */
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{font-weight:600;color:var(--muted);text-align:right;padding:4px 4px;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.tbl td{text-align:right;padding:6px 4px;border-top:1px solid var(--line)}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.pill{display:inline-block;min-width:64px;text-align:center;padding:2px 6px;border-radius:4px;font-weight:600;font-size:13px}
+.pill.up{background:color-mix(in srgb,var(--bull) 18%,transparent)}
+.pill.down{background:color-mix(in srgb,var(--bear) 18%,transparent)}
+.pill.flat{background:color-mix(in srgb,var(--muted) 15%,transparent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kv{display:flex;flex-direction:column;gap:2px;min-width:0}
+.kv .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.kv .v{font-size:18px}
+.kv .n{font-size:13px;color:var(--muted)}
+.list{margin:0;padding-left:18px;font-size:14px;display:flex;flex-direction:column;gap:4px}
+/* Kalkulator */
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+input{font:400 16px var(--num);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;width:100%;min-width:0}
+input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.seg{display:flex;gap:6px}
+.seg button{flex:1}
+.seg button.on.long{background:var(--bull);border-color:var(--bull)}
+.seg button.on.short{background:var(--bear);border-color:var(--bear)}
+.out{margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.alert{margin-top:10px;padding:8px 10px;border-radius:6px;font-size:14px;background:color-mix(in srgb,var(--bear) 18%,transparent);color:var(--fg)}
+.note{font-size:12px;color:var(--muted);margin:8px 0 0}
+.err{color:var(--warn);font-size:13px}
+footer{font-size:12px;color:var(--muted);text-align:center;padding:4px 8px}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <div class="brand">BTCUSDT · Perpetual</div>
+      <div class="price num" id="price">—</div>
+      <div class="chg num" id="chg">učitavam…</div>
+    </div>
+    <div style="text-align:right">
+      <div class="conn"><span class="dot" id="dot"></span><span id="connTxt">spajanje</span></div>
+      <div class="vsub num" id="updated" style="font-size:12px"></div>
+    </div>
+  </header>
+
+  <section aria-labelledby="h-verdict">
+    <h2 id="h-verdict">Ocjena signala</h2>
+    <div class="verdict">
+      <svg class="gauge" viewBox="0 0 100 100" id="gauge" aria-hidden="true"></svg>
+      <div>
+        <div class="vlabel" id="vlabel">—</div>
+        <div class="vsub" id="vsub">Računam iz 5 vremenskih okvira i futures podataka…</div>
+      </div>
+    </div>
+    <ul class="reasons" id="reasons"></ul>
+    <p class="note">Ocjena od −100 do +100 zbraja signale. To nije vjerojatnost i nije savjet za ulaz. Prava kalibracija dolazi s backtestom (Faza 3).</p>
+  </section>
+
+  <section aria-labelledby="h-chart">
+    <h2 id="h-chart">Graf</h2>
+    <div class="tfs" id="tfs"></div>
+    <div id="chart"></div>
+    <div class="legend">
+      <span><i style="background:#e8b13a"></i>EMA 20</span>
+      <span><i style="background:#5aa9ff"></i>EMA 50</span>
+      <span><i style="background:#b77cff"></i>EMA 200</span>
+      <span><i style="background:#26c281"></i>podrška</span>
+      <span><i style="background:#f0524f"></i>otpor</span>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-mtf">
+    <h2 id="h-mtf">Trend po okvirima</h2>
+    <table class="tbl">
+      <thead><tr><th>Okvir</th><th>Trend</th><th>RSI</th><th>MACD</th><th>vs EMA200</th></tr></thead>
+      <tbody id="mtf"></tbody>
+    </table>
+  </section>
+
+  <section aria-labelledby="h-fut">
+    <h2 id="h-fut">Futures tržište</h2>
+    <div class="grid2" id="fut"></div>
+  </section>
+
+  <section aria-labelledby="h-pat">
+    <h2 id="h-pat">Paterni i razine (<span id="patTf">15m</span>)</h2>
+    <ul class="list" id="patterns"></ul>
+  </section>
+
+  <section aria-labelledby="h-calc">
+    <h2 id="h-calc">Kalkulator pozicije</h2>
+    <div class="seg" style="margin-bottom:10px">
+      <button type="button" id="sideLong" class="long on">Long</button>
+      <button type="button" id="sideShort" class="short">Short</button>
+    </div>
+    <div class="form">
+      <label for="cap">Kapital (USDT)<input id="cap" type="number" inputmode="decimal" value="500"></label>
+      <label for="risk">Rizik po tradeu %<input id="risk" type="number" inputmode="decimal" value="2" step="0.5"></label>
+      <label for="lev">Poluga ×<input id="lev" type="number" inputmode="numeric" value="20"></label>
+      <label for="entry">Ulaz<input id="entry" type="number" inputmode="decimal"></label>
+      <label for="stop">Stop-loss<input id="stop" type="number" inputmode="decimal"></label>
+      <label for="tp">Take-profit<input id="tp" type="number" inputmode="decimal"></label>
+    </div>
+    <button type="button" id="fill" class="tfs" style="margin-top:10px;font:600 14px var(--ui);color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:6px;padding:8px 12px;width:100%">Popuni prijedlog iz trenutne cijene i ATR-a (1h)</button>
+    <div class="out" id="calcOut"></div>
+    <div id="calcAlert"></div>
+    <p class="note">Likvidacija je okvirna (izolirana margina, održavanje 0,4 %). Točan iznos uvijek provjeri na MEXC-u prije ulaza.</p>
+  </section>
+
+  <footer>Podaci: Binance USDⓈ-M futures (javni API). Cijena na MEXC-u razlikuje se tek za nekoliko dolara.<br>Ovo je alat za analizu, ne financijski savjet.</footer>
+</main>
+
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+"use strict";
+const API = "https://fapi.binance.com";
+const WS = "wss://fstream.binance.com/stream?streams=";
+const SYMBOL = "BTCUSDT";
+const TFS = ["5m", "15m", "1h", "4h", "1d"];
+const TF_WEIGHT = { "5m": 0.5, "15m": 1, "1h": 1.5, "4h": 2, "1d": 2 };
+const C = { bull: "#26c281", bear: "#f0524f", warn: "#e8b13a", muted: "#8b98a5", line: "#1f2832", fg: "#e6edf3", panel: "#121820" };
+const TZ = -new Date().getTimezoneOffset() * 60;
+
+const state = { tf: "15m", candles: {}, analysis: {}, fut: {}, price: null, side: "long" };
+const $ = id => document.getElementById(id);
+
+// ---------- Indikatori ----------
+function ema(v, p) {
+  const out = new Array(v.length).fill(null);
+  if (v.length < p) return out;
+  const k = 2 / (p + 1);
+  let prev = v.slice(0, p).reduce((a, b) => a + b, 0) / p;
+  out[p - 1] = prev;
+  for (let i = p; i < v.length; i++) { prev = v[i] * k + prev * (1 - k); out[i] = prev; }
+  return out;
+}
+function rsi(v, p = 14) {
+  const out = new Array(v.length).fill(null);
+  if (v.length <= p) return out;
+  let g = 0, l = 0;
+  for (let i = 1; i <= p; i++) { const d = v[i] - v[i - 1]; d > 0 ? g += d : l -= d; }
+  g /= p; l /= p;
+  out[p] = l === 0 ? 100 : 100 - 100 / (1 + g / l);
+  for (let i = p + 1; i < v.length; i++) {
+    const d = v[i] - v[i - 1];
+    g = (g * (p - 1) + Math.max(d, 0)) / p;
+    l = (l * (p - 1) + Math.max(-d, 0)) / p;
+    out[i] = l === 0 ? 100 : 100 - 100 / (1 + g / l);
+  }
+  return out;
+}
+function macd(v) {
+  const e12 = ema(v, 12), e26 = ema(v, 26);
+  const line = v.map((_, i) => e12[i] != null && e26[i] != null ? e12[i] - e26[i] : null);
+  const start = line.findIndex(x => x != null);
+  const sig = new Array(v.length).fill(null);
+  if (start >= 0) ema(line.slice(start), 9).forEach((x, j) => sig[start + j] = x);
+  return line.map((x, i) => x != null && sig[i] != null ? x - sig[i] : null);
+}
+function atr(c, p = 14) {
+  const tr = c.map((k, i) => i === 0 ? k.h - k.l : Math.max(k.h - k.l, Math.abs(k.h - c[i - 1].c), Math.abs(k.l - c[i - 1].c)));
+  const out = new Array(c.length).fill(null);
+  if (c.length <= p) return out;
+  let a = tr.slice(1, p + 1).reduce((x, y) => x + y, 0) / p;
+  out[p] = a;
+  for (let i = p + 1; i < c.length; i++) { a = (a * (p - 1) + tr[i]) / p; out[i] = a; }
+  return out;
+}
+const last = a => { for (let i = a.length - 1; i >= 0; i--) if (a[i] != null) return a[i]; return null; };
+
+// Pivot vrhovi/dna: bar je pivot ako je najviši/najniži u prozoru ±w.
+function pivots(c, w) {
+  const hi = [], lo = [];
+  for (let i = w; i < c.length - w; i++) {
+    let isH = true, isL = true;
+    for (let j = i - w; j <= i + w; j++) {
+      if (j === i) continue;
+      if (c[j].h >= c[i].h) isH = false;
+      if (c[j].l <= c[i].l) isL = false;
+    }
+    if (isH) hi.push(i);
+    if (isL) lo.push(i);
+  }
+  return { hi, lo };
+}
+
+// Razine podrške/otpora: grupiranje pivota unutar 0,6×ATR, jače razine imaju više dodira.
+function levels(c, atrNow) {
+  const { hi, lo } = pivots(c, 5);
+  const pts = [...hi.map(i => c[i].h), ...lo.map(i => c[i].l)].sort((a, b) => a - b);
+  const tol = atrNow * 0.6, groups = [];
+  for (const p of pts) {
+    const g = groups[groups.length - 1];
+    if (g && p - g.max <= tol) { g.sum += p; g.n++; g.max = p; } else groups.push({ sum: p, n: 1, max: p });
+  }
+  const price = c[c.length - 1].c;
+  const lv = groups.map(g => ({ price: g.sum / g.n, touches: g.n }));
+  const sup = lv.filter(l => l.price < price).sort((a, b) => b.price - a.price).slice(0, 3);
+  const res = lv.filter(l => l.price > price).sort((a, b) => a.price - b.price).slice(0, 3);
+  return { sup, res };
+}
+
+function divergences(c, r) {
+  const out = [];
+  const { hi, lo } = pivots(c, 3);
+  const recent = c.length - 30;
+  const check = (idx, bull) => {
+    if (idx.length < 2) return;
+    const a = idx[idx.length - 2], b = idx[idx.length - 1];
+    if (b < recent || r[a] == null || r[b] == null) return;
+    if (bull && c[b].l < c[a].l && r[b] > r[a] + 2) out.push({ i: b, bull: true, text: "Bikovska RSI divergencija: niže dno cijene, više dno RSI-ja" });
+    if (!bull && c[b].h > c[a].h && r[b] < r[a] - 2) out.push({ i: b, bull: false, text: "Medvjeđa RSI divergencija: viši vrh cijene, niži vrh RSI-ja" });
+  };
+  check(lo, true); check(hi, false);
+  return out;
+}
+
+function candlePatterns(c) {
+  // Gledamo zadnju zatvorenu svijeću (pretposljednja u nizu).
+  const out = [], i = c.length - 2;
+  if (i < 1) return out;
+  const k = c[i], p = c[i - 1];
+  const body = Math.abs(k.c - k.o), range = k.h - k.l || 1e-9;
+  const upW = k.h - Math.max(k.o, k.c), dnW = Math.min(k.o, k.c) - k.l;
+  if (k.c > k.o && p.c < p.o && k.c >= p.o && k.o <= p.c) out.push({ i, bull: true, text: "Bikovski engulfing na zadnjoj zatvorenoj svijeći" });
+  if (k.c < k.o && p.c > p.o && k.o >= p.c && k.c <= p.o) out.push({ i, bull: false, text: "Medvjeđi engulfing na zadnjoj zatvorenoj svijeći" });
+  if (dnW > body * 2 && upW < body && body / range < 0.35) out.push({ i, bull: true, text: "Hammer (dugi donji fitilj): kupci su odbili pad" });
+  if (upW > body * 2 && dnW < body && body / range < 0.35) out.push({ i, bull: false, text: "Shooting star (dugi gornji fitilj): prodavači su odbili rast" });
+  return out;
+}
+
+function analyze(c) {
+  const close = c.map(k => k.c);
+  const e20 = ema(close, 20), e50 = ema(close, 50), e200 = ema(close, 200);
+  const r = rsi(close), h = macd(close), a = atr(c);
+  const price = close[close.length - 1];
+  const E20 = last(e20), E50 = last(e50), E200 = last(e200), R = last(r), H = last(h), A = last(a);
+  const hPrev = h[h.length - 2];
+  let score = 0;
+  if (E200 != null) score += price > E200 ? 1 : -1;
+  if (E20 != null && E50 != null) score += E20 > E50 ? 1 : -1;
+  if (H != null) score += H > 0 ? 1 : -1;
+  if (R != null) score += R > 55 ? 1 : R < 45 ? -1 : 0;
+  return { e20, e50, e200, r, h, a, price, E20, E50, E200, R, H, hRising: H != null && hPrev != null && H > hPrev, A, score };
+}
+
+// ---------- Dohvat podataka ----------
+async function getJSON(path) {
+  const res = await fetch(API + path, { cache: "no-store" });
+  if (!res.ok) throw new Error(res.status + " " + path);
+  return res.json();
+}
+async function loadCandles(tf) {
+  const raw = await getJSON(`/fapi/v1/klines?symbol=${SYMBOL}&interval=${tf}&limit=500`);
+  state.candles[tf] = raw.map(k => ({ t: k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
+  state.analysis[tf] = analyze(state.candles[tf]);
+}
+async function loadFutures() {
+  const f = state.fut;
+  const jobs = {
+    ticker: getJSON(`/fapi/v1/ticker/24hr?symbol=${SYMBOL}`),
+    prem: getJSON(`/fapi/v1/premiumIndex?symbol=${SYMBOL}`),
+    oi: getJSON(`/futures/data/openInterestHist?symbol=${SYMBOL}&period=1h&limit=25`),
+    ls: getJSON(`/futures/data/globalLongShortAccountRatio?symbol=${SYMBOL}&period=1h&limit=2`),
+    top: getJSON(`/futures/data/topLongShortPositionRatio?symbol=${SYMBOL}&period=1h&limit=2`),
+    taker: getJSON(`/futures/data/takerlongshortRatio?symbol=${SYMBOL}&period=1h&limit=3`),
+    depth: getJSON(`/fapi/v1/depth?symbol=${SYMBOL}&limit=500`),
+  };
+  const keys = Object.keys(jobs);
+  const res = await Promise.allSettled(Object.values(jobs));
+  res.forEach((r, i) => { f[keys[i]] = r.status === "fulfilled" ? r.value : null; });
+}
+
+// ---------- Ukupna ocjena ----------
+function verdict() {
+  const reasons = [];
+  let tech = 0, wsum = 0;
+  for (const tf of TFS) {
+    const a = state.analysis[tf];
+    if (!a) continue;
+    tech += (a.score / 4) * TF_WEIGHT[tf];
+    wsum += TF_WEIGHT[tf];
+  }
+  tech = wsum ? tech / wsum : 0;
+  const bullTfs = TFS.filter(tf => state.analysis[tf]?.score >= 2);
+  const bearTfs = TFS.filter(tf => state.analysis[tf]?.score <= -2);
+  if (bullTfs.length) reasons.push({ s: 1, t: `Bikovski trend na: ${bullTfs.join(", ")}` });
+  if (bearTfs.length) reasons.push({ s: -1, t: `Medvjeđi trend na: ${bearTfs.join(", ")}` });
+
+  let fut = 0;
+  const f = state.fut;
+  const fr = f.prem ? +f.prem.lastFundingRate * 100 : null;
+  if (fr != null) {
+    if (fr > 0.03) { fut -= 0.5; reasons.push({ s: -1, t: `Funding ${fr.toFixed(4)} % je visok: previše longova, raste rizik flusha prema dolje` }); }
+    else if (fr < -0.01) { fut += 0.5; reasons.push({ s: 1, t: `Funding ${fr.toFixed(4)} % je negativan: shortovi plaćaju, moguć short squeeze` }); }
+  }
+  const ls = f.ls?.length ? +f.ls[f.ls.length - 1].longShortRatio : null;
+  if (ls != null) {
+    if (ls > 2) { fut -= 0.4; reasons.push({ s: -1, t: `Long/short omjer računa ${ls.toFixed(2)}: masa je long (kontra signal)` }); }
+    else if (ls < 0.9) { fut += 0.4; reasons.push({ s: 1, t: `Long/short omjer računa ${ls.toFixed(2)}: masa je short (kontra signal)` }); }
+  }
+  const tk = f.taker?.length ? +f.taker[f.taker.length - 1].buySellRatio : null;
+  if (tk != null) {
+    if (tk > 1.1) { fut += 0.3; reasons.push({ s: 1, t: `Agresivni kupci dominiraju zadnjih sat vremena (taker ${tk.toFixed(2)})` }); }
+    else if (tk < 0.9) { fut -= 0.3; reasons.push({ s: -1, t: `Agresivni prodavači dominiraju zadnjih sat vremena (taker ${tk.toFixed(2)})` }); }
+  }
+  const ob = bookImbalance();
+  if (ob != null) {
+    if (ob > 1.3) { fut += 0.3; reasons.push({ s: 1, t: `Više kupovnih naloga u knjizi unutar ±1 % (${ob.toFixed(2)}×)` }); }
+    else if (ob < 0.77) { fut -= 0.3; reasons.push({ s: -1, t: `Više prodajnih naloga u knjizi unutar ±1 % (${(1 / ob).toFixed(2)}×)` }); }
+  }
+  const oi = oiChange();
+  if (oi && f.ticker) {
+    const pc = +f.ticker.priceChangePercent;
+    if (oi.pct > 3 && pc > 0) reasons.push({ s: 1, t: `Rast s rastom OI (+${oi.pct.toFixed(1)} %): novi novac ulazi u longove` });
+    if (oi.pct > 3 && pc < 0) reasons.push({ s: -1, t: `Pad s rastom OI (+${oi.pct.toFixed(1)} %): novi shortovi guraju cijenu` });
+    if (oi.pct < -3 && pc > 0) reasons.push({ s: 0, t: `Rast uz pad OI (${oi.pct.toFixed(1)} %): pokreću ga zatvaranja shortova, slabiji rast` });
+    if (oi.pct < -3 && pc < 0) reasons.push({ s: 0, t: `Pad uz pad OI (${oi.pct.toFixed(1)} %): likvidacije longova, pad može usporiti` });
+  }
+  const a1 = state.analysis["1h"];
+  if (a1?.R != null) {
+    if (a1.R > 75) reasons.push({ s: -1, t: `RSI na 1h je ${a1.R.toFixed(0)}: prekupljeno, ne juri long` });
+    if (a1.R < 25) reasons.push({ s: 1, t: `RSI na 1h je ${a1.R.toFixed(0)}: preprodano, ne juri short` });
+  }
+  fut = Math.max(-1, Math.min(1, fut));
+  const total = Math.round((tech * 0.7 + fut * 0.3) * 100);
+  return { total, reasons };
+}
+function bookImbalance() {
+  const d = state.fut.depth;
+  const p = state.price || state.analysis["15m"]?.price;
+  if (!d || !p) return null;
+  const sum = (rows, ok) => rows.reduce((s, [px, q]) => ok(+px) ? s + +q : s, 0);
+  const b = sum(d.bids, x => x >= p * 0.99), a = sum(d.asks, x => x <= p * 1.01);
+  return a > 0 && b > 0 ? b / a : null;
+}
+function oiChange() {
+  const o = state.fut.oi;
+  if (!o || o.length < 2) return null;
+  const first = +o[0].sumOpenInterestValue, lastV = +o[o.length - 1].sumOpenInterestValue;
+  return { pct: (lastV / first - 1) * 100, value: lastV };
+}
+
+// ---------- Prikaz ----------
+const fmt = (x, d = 1) => x == null || isNaN(x) ? "—" : x.toLocaleString("hr-HR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const cls = s => s > 0 ? "up" : s < 0 ? "down" : "flat";
+
+function drawGauge(v) {
+  const r = 40, cx = 50, cy = 50, circ = 2 * Math.PI * r, frac = Math.abs(v) / 100;
+  const col = v >= 20 ? C.bull : v <= -20 ? C.bear : C.warn;
+  $("gauge").innerHTML =
+    `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${C.line}" stroke-width="9"/>` +
+    `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${col}" stroke-width="9" stroke-linecap="round"
+      stroke-dasharray="${circ * frac} ${circ}" transform="${v < 0 ? "translate(100 0) scale(-1 1) " : ""}rotate(-90 50 50)"/>` +
+    `<text x="50" y="57" text-anchor="middle" fill="${C.fg}" font-family="JetBrains Mono,monospace" font-size="22" font-weight="600">${v > 0 ? "+" : ""}${v}</text>`;
+}
+
+function renderVerdict() {
+  const { total, reasons } = verdict();
+  drawGauge(total);
+  const lab = total >= 50 ? ["Jako bikovski", "up"] : total >= 20 ? ["Blago bikovski", "up"] : total <= -50 ? ["Jako medvjeđi", "down"] : total <= -20 ? ["Blago medvjeđi", "down"] : ["Neutralno / bočno", "warn"];
+  $("vlabel").textContent = lab[0];
+  $("vlabel").className = "vlabel " + lab[1];
+  const agree = TFS.filter(tf => state.analysis[tf] && Math.sign(state.analysis[tf].score) === Math.sign(total) && total !== 0).length;
+  $("vsub").textContent = total === 0 ? "Signali se poništavaju." : `${agree} od 5 okvira se slaže sa smjerom.` + (Math.abs(total) < 20 ? " Bez jasnog ruba, bolje čekati." : "");
+  $("reasons").innerHTML = reasons.map(r => `<li><span class="tag ${cls(r.s)}">${r.s > 0 ? "▲" : r.s < 0 ? "▼" : "•"}</span><span>${r.t}</span></li>`).join("") || `<li><span class="tag flat">•</span><span>Nema izraženih signala.</span></li>`;
+}
+
+function renderMTF() {
+  $("mtf").innerHTML = TFS.map(tf => {
+    const a = state.analysis[tf];
+    if (!a) return `<tr><td>${tf}</td><td colspan="4" class="flat">—</td></tr>`;
+    const t = a.score >= 2 ? ["Gore", "up"] : a.score <= -2 ? ["Dolje", "down"] : ["Bočno", "flat"];
+    const rc = a.R > 70 ? "warn" : a.R < 30 ? "warn" : "";
+    const dist = a.E200 ? (a.price / a.E200 - 1) * 100 : null;
+    return `<tr><td><b>${tf}</b></td><td><span class="pill ${t[1]}">${t[0]}</span></td>
+      <td class="num ${rc}">${fmt(a.R, 0)}</td>
+      <td class="num ${cls(a.H)}">${a.H > 0 ? "▲" : "▼"}${a.hRising ? " jača" : " slabi"}</td>
+      <td class="num ${cls(dist)}">${dist == null ? "—" : (dist > 0 ? "+" : "") + fmt(dist, 1) + " %"}</td></tr>`;
+  }).join("");
+}
+
+function renderFutures() {
+  const f = state.fut, cells = [];
+  const fr = f.prem ? +f.prem.lastFundingRate * 100 : null;
+  const next = f.prem ? new Date(+f.prem.nextFundingTime) : null;
+  cells.push(kv("Funding (8h)", fr == null ? "—" : (fr > 0 ? "+" : "") + fr.toFixed(4) + " %", fr > 0.03 ? "warn" : fr < 0 ? "up" : "",
+    next ? "sljedeći u " + next.toLocaleTimeString("hr-HR", { hour: "2-digit", minute: "2-digit" }) : ""));
+  const oi = oiChange();
+  cells.push(kv("Open interest", oi ? fmt(oi.value / 1e9, 2) + " mlrd $" : "—", "", oi ? `24h: ${oi.pct > 0 ? "+" : ""}${fmt(oi.pct, 1)} %` : ""));
+  const ls = f.ls?.length ? f.ls[f.ls.length - 1] : null;
+  cells.push(kv("Long/short (računi)", ls ? (+ls.longShortRatio).toFixed(2) : "—", ls && +ls.longShortRatio > 2 ? "warn" : "",
+    ls ? `${fmt(+ls.longAccount * 100, 0)} % long / ${fmt(+ls.shortAccount * 100, 0)} % short` : ""));
+  const top = f.top?.length ? f.top[f.top.length - 1] : null;
+  cells.push(kv("Top traderi (pozicije)", top ? (+top.longShortRatio).toFixed(2) : "—", "", top ? `${fmt(+top.longAccount * 100, 0)} % long` : "veliki igrači"));
+  const tk = f.taker?.length ? +f.taker[f.taker.length - 1].buySellRatio : null;
+  cells.push(kv("Taker kupnja/prodaja", tk ? tk.toFixed(2) : "—", tk > 1 ? "up" : tk < 1 ? "down" : "", "zadnji sat"));
+  const ob = bookImbalance();
+  cells.push(kv("Order book ±1 %", ob ? ob.toFixed(2) + "×" : "—", ob > 1.15 ? "up" : ob < 0.87 ? "down" : "", "kupci / prodavači"));
+  $("fut").innerHTML = cells.join("");
+}
+const kv = (k, v, c, n) => `<div class="kv"><span class="k">${k}</span><span class="v num ${c}">${v}</span><span class="n">${n || ""}</span></div>`;
+
+function renderHeader() {
+  const t = state.fut.ticker;
+  const p = state.price ?? state.analysis["15m"]?.price;
+  if (p) { $("price").textContent = fmt(p, 1); document.title = `${fmt(p, 0)} · BTC Radar`; }
+  if (t) {
+    const pc = +t.priceChangePercent;
+    $("chg").innerHTML = `<span class="${cls(pc)}">${pc > 0 ? "+" : ""}${fmt(pc, 2)} %</span> <span class="flat">24h · H ${fmt(+t.highPrice, 0)} · L ${fmt(+t.lowPrice, 0)}</span>`;
+  }
+  $("updated").textContent = "osvježeno " + new Date().toLocaleTimeString("hr-HR");
+}
+
+// ---------- Graf ----------
+let chart, candleS, e20S, e50S, e200S, priceLines = [];
+function initChart() {
+  chart = LightweightCharts.createChart($("chart"), {
+    autoSize: true,
+    layout: { background: { type: "solid", color: C.panel }, textColor: C.muted, fontFamily: "JetBrains Mono, monospace", fontSize: 11 },
+    grid: { vertLines: { color: "#18202a" }, horzLines: { color: "#18202a" } },
+    rightPriceScale: { borderColor: C.line },
+    timeScale: { borderColor: C.line, timeVisible: true, secondsVisible: false, rightOffset: 6 },
+    crosshair: { mode: 0 },
+    localization: { locale: "hr-HR", priceFormatter: p => fmt(p, 0) },
+  });
+  candleS = chart.addCandlestickSeries({ upColor: C.bull, downColor: C.bear, borderVisible: false, wickUpColor: C.bull, wickDownColor: C.bear });
+  const lo = c => ({ color: c, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+  e20S = chart.addLineSeries(lo("#e8b13a"));
+  e50S = chart.addLineSeries(lo("#5aa9ff"));
+  e200S = chart.addLineSeries({ ...lo("#b77cff"), lineWidth: 2 });
+}
+const bar = k => ({ time: k.t / 1000 + TZ, open: k.o, high: k.h, low: k.l, close: k.c });
+function renderChart(fit) {
+  const c = state.candles[state.tf], a = state.analysis[state.tf];
+  if (!c || !chart) return;
+  candleS.setData(c.map(bar));
+  const line = arr => arr.map((v, i) => v == null ? null : { time: c[i].t / 1000 + TZ, value: v }).filter(Boolean);
+  e20S.setData(line(a.e20)); e50S.setData(line(a.e50)); e200S.setData(line(a.e200));
+  priceLines.forEach(l => candleS.removePriceLine(l));
+  priceLines = [];
+  const lv = levels(c, a.A || c[c.length - 1].c * 0.003);
+  lv.sup.forEach(l => priceLines.push(candleS.createPriceLine({ price: l.price, color: C.bull, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: `S ×${l.touches}` })));
+  lv.res.forEach(l => priceLines.push(candleS.createPriceLine({ price: l.price, color: C.bear, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: `R ×${l.touches}` })));
+  const pats = [...divergences(c, a.r), ...candlePatterns(c)];
+  candleS.setMarkers(pats.map(p => ({ time: c[p.i].t / 1000 + TZ, position: p.bull ? "belowBar" : "aboveBar", color: p.bull ? C.bull : C.bear, shape: p.bull ? "arrowUp" : "arrowDown", text: p.bull ? "▲" : "▼" }))
+    .sort((x, y) => x.time - y.time));
+  if (fit) chart.timeScale().setVisibleLogicalRange({ from: c.length - 120, to: c.length + 5 });
+  renderPatterns(lv, pats, a);
+}
+function renderPatterns(lv, pats, a) {
+  $("patTf").textContent = state.tf;
+  const p = a.price, items = [];
+  pats.forEach(x => items.push(`<li class="${x.bull ? "up" : "down"}">${x.text}</li>`));
+  if (lv.res[0]) items.push(`<li>Najbliži otpor: <b class="num">${fmt(lv.res[0].price, 0)}</b> (${fmt((lv.res[0].price / p - 1) * 100, 2)} %, ${lv.res[0].touches} dodira)</li>`);
+  if (lv.sup[0]) items.push(`<li>Najbliža podrška: <b class="num">${fmt(lv.sup[0].price, 0)}</b> (${fmt((lv.sup[0].price / p - 1) * 100, 2)} %, ${lv.sup[0].touches} dodira)</li>`);
+  if (a.A) items.push(`<li>ATR (prosječni raspon svijeće): <b class="num">${fmt(a.A, 0)} $</b> (${fmt(a.A / p * 100, 2)} %)</li>`);
+  $("patterns").innerHTML = items.join("") || "<li>Nema paterna na zadnjim svijećama.</li>";
+}
+function renderTfButtons() {
+  $("tfs").innerHTML = TFS.map(tf => `<button type="button" data-tf="${tf}" class="${tf === state.tf ? "on" : ""}">${tf}</button>`).join("");
+}
+$("tfs").addEventListener("click", e => {
+  const tf = e.target.dataset?.tf;
+  if (!tf || tf === state.tf) return;
+  state.tf = tf; save("tf", tf);
+  renderTfButtons(); renderChart(true); connectWS();
+});
+
+// ---------- WebSocket (live cijena i svijeća) ----------
+let ws, wsTimer;
+function connectWS() {
+  clearTimeout(wsTimer);
+  if (ws) { ws.onclose = null; ws.close(); }
+  const s = SYMBOL.toLowerCase();
+  ws = new WebSocket(WS + `${s}@markPrice@1s/${s}@kline_${state.tf}`);
+  ws.onopen = () => setConn(true);
+  ws.onclose = () => { setConn(false); wsTimer = setTimeout(connectWS, 3000); };
+  ws.onerror = () => ws.close();
+  ws.onmessage = ev => {
+    const { data } = JSON.parse(ev.data);
+    if (data.e === "markPriceUpdate") {
+      state.price = +data.p;
+      if (state.fut.prem) { state.fut.prem.lastFundingRate = data.r; state.fut.prem.nextFundingTime = data.T; }
+      renderHeader();
+    } else if (data.e === "kline") {
+      const k = data.k, c = state.candles[state.tf];
+      if (!c || k.i !== state.tf) return;
+      const nk = { t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, v: +k.v };
+      if (c[c.length - 1].t === nk.t) c[c.length - 1] = nk; else { c.push(nk); if (c.length > 600) c.shift(); }
+      candleS.update(bar(nk));
+      if (k.x) { state.analysis[state.tf] = analyze(c); renderChart(false); renderMTF(); renderVerdict(); }
+    }
+  };
+}
+function setConn(on) { $("dot").className = "dot " + (on ? "on" : "off"); $("connTxt").textContent = on ? "uživo" : "ponovno spajanje"; }
+
+// ---------- Osvježavanje ----------
+let busy = false;
+async function refreshAll(first) {
+  if (busy) return; busy = true;
+  try {
+    await Promise.all([...TFS.map(tf => loadCandles(tf).catch(e => console.warn(e))), loadFutures()]);
+    if (!state.candles[state.tf]) throw new Error("no candles");
+    renderHeader(); renderChart(first); renderMTF(); renderFutures(); renderVerdict();
+    if (first && !$("entry").value) fillSuggestion();
+    calc();
+  } catch (e) {
+    console.error(e);
+    $("vsub").innerHTML = `<span class="err">Ne mogu dohvatiti podatke s Binancea. Provjeri internet ili VPN pa povuci stranicu prema dolje za osvježavanje.</span>`;
+  } finally { busy = false; }
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") { refreshAll(false); if (!ws || ws.readyState > 1) connectWS(); }
+});
+
+// ---------- Kalkulator ----------
+const CALC_IDS = ["cap", "risk", "lev", "entry", "stop", "tp"];
+function save(k, v) { try { localStorage.setItem("btcr_" + k, v); } catch (e) {} }
+function load(k) { try { return localStorage.getItem("btcr_" + k); } catch (e) { return null; } }
+function setSide(side) {
+  state.side = side; save("side", side);
+  $("sideLong").classList.toggle("on", side === "long");
+  $("sideShort").classList.toggle("on", side === "short");
+}
+function fillSuggestion() {
+  const a = state.analysis["1h"], c = state.candles["1h"];
+  const p = state.price ?? a?.price;
+  if (!a || !p) return;
+  const lv = levels(c, a.A);
+  // Stop iza najbliže razine ako je unutar 1–3 ATR-a, inače 1,5 ATR. TP na prvoj razini koja daje barem 1:1,5, inače 1:2.
+  const dir = state.side === "long" ? 1 : -1;
+  const guard = (dir > 0 ? lv.sup : lv.res).map(l => Math.abs(p - l.price) + a.A * 0.3).find(d => d >= a.A && d <= a.A * 3);
+  const dist = guard ?? a.A * 1.5;
+  const stop = p - dir * dist;
+  const target = (dir > 0 ? lv.res : lv.sup).find(l => Math.abs(l.price - p) >= dist * 1.5);
+  const tp = target ? target.price : p + dir * dist * 2;
+  $("entry").value = p.toFixed(1); $("stop").value = stop.toFixed(1); $("tp").value = tp.toFixed(1);
+  calc();
+}
+function calc() {
+  const v = Object.fromEntries(CALC_IDS.map(id => [id, parseFloat($(id).value)]));
+  CALC_IDS.slice(0, 3).forEach(id => save(id, $(id).value));
+  const long = state.side === "long", out = [], warns = [];
+  if (!(v.cap > 0 && v.risk > 0 && v.lev > 0 && v.entry > 0 && v.stop > 0)) { $("calcOut").innerHTML = ""; $("calcAlert").innerHTML = ""; return; }
+  if (long ? v.stop >= v.entry : v.stop <= v.entry) {
+    $("calcOut").innerHTML = ""; $("calcAlert").innerHTML = `<div class="alert">Stop-loss mora biti ${long ? "ispod" : "iznad"} ulaza za ${long ? "long" : "short"}.</div>`; return;
+  }
+  const riskUsd = v.cap * v.risk / 100;
+  const stopDist = Math.abs(v.entry - v.stop) / v.entry;
+  const notional = riskUsd / stopDist;
+  const margin = notional / v.lev;
+  const mmr = 0.004;
+  const liq = long ? v.entry * (1 - 1 / v.lev + mmr) : v.entry * (1 + 1 / v.lev - mmr);
+  out.push(kv("Veličina pozicije", fmt(notional, 0) + " $", "", fmt(notional / v.entry, 4) + " BTC"));
+  out.push(kv("Potrebna margina", fmt(margin, 2) + " $", margin > v.cap ? "down" : "", fmt(margin / v.cap * 100, 0) + " % kapitala"));
+  out.push(kv("Gubitak na stopu", "−" + fmt(riskUsd, 2) + " $", "down", fmt(stopDist * 100, 2) + " % od ulaza"));
+  out.push(kv("Likvidacija ≈", fmt(liq, 0), "warn", fmt(Math.abs(liq / v.entry - 1) * 100, 2) + " % od ulaza"));
+  if (v.tp > 0 && (long ? v.tp > v.entry : v.tp < v.entry)) {
+    const gain = notional * Math.abs(v.tp - v.entry) / v.entry;
+    const rr = Math.abs(v.tp - v.entry) / Math.abs(v.entry - v.stop);
+    out.push(kv("Dobit na TP-u", "+" + fmt(gain, 2) + " $", "up", ""));
+    out.push(kv("Omjer rizik/nagrada", "1 : " + fmt(rr, 2), rr >= 2 ? "up" : rr < 1.5 ? "warn" : "", rr < 1.5 ? "ispod 1:1,5 rijetko se isplati" : ""));
+  }
+  if (long ? liq >= v.stop : liq <= v.stop) warns.push("Likvidacija dolazi PRIJE stop-lossa. Smanji polugu ili pomakni stop bliže.");
+  if (margin > v.cap) warns.push("Za ovaj rizik treba više margine nego što imaš kapitala. Povećaj polugu ili smanji rizik.");
+  if (v.risk > 5) warns.push("Rizik iznad 5 % po tradeu brzo prazni račun i kad imaš dobar pogodak.");
+  $("calcOut").innerHTML = out.join("");
+  $("calcAlert").innerHTML = warns.map(w => `<div class="alert">${w}</div>`).join("");
+}
+CALC_IDS.forEach(id => $(id).addEventListener("input", calc));
+$("sideLong").addEventListener("click", () => { setSide("long"); fillSuggestion(); });
+$("sideShort").addEventListener("click", () => { setSide("short"); fillSuggestion(); });
+$("fill").addEventListener("click", fillSuggestion);
+
+// ---------- Start ----------
+(function start() {
+  const tf = load("tf"); if (TFS.includes(tf)) state.tf = tf;
+  ["cap", "risk", "lev"].forEach(id => { const x = load(id); if (x) $(id).value = x; });
+  setSide(load("side") === "short" ? "short" : "long");
+  renderTfButtons(); drawGauge(0);
+  try { initChart(); } catch (e) { console.error(e); }
+  refreshAll(true);
+  connectWS();
+  setInterval(() => refreshAll(false), 60000);
+})();
+</script>
+</body>
+</html>
