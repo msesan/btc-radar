@@ -38,7 +38,7 @@ header{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;p
 .chg{font-size:14px}
 .conn{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
-.dot.on{background:var(--bull)} .dot.off{background:var(--bear)}
+.dot.on{background:var(--bull)} .dot.slow{background:var(--warn)} .dot.off{background:var(--bear)}
 section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
 h2{margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .up{color:var(--bull)} .down{color:var(--bear)} .flat{color:var(--muted)} .warn{color:var(--warn)}
@@ -85,6 +85,17 @@ input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:
 .alert{margin-top:10px;padding:8px 10px;border-radius:6px;font-size:14px;background:color-mix(in srgb,var(--bear) 18%,transparent);color:var(--fg)}
 .note{font-size:12px;color:var(--muted);margin:8px 0 0}
 .err{color:var(--warn);font-size:13px}
+details{border-top:1px solid var(--line)}
+details:first-of-type{border-top:0}
+summary{cursor:pointer;padding:10px 0;font-weight:600;font-size:16px;list-style:none;display:flex;justify-content:space-between;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--muted);font-family:var(--num)}
+details[open] summary::after{content:"−"}
+.help{font-size:15px;padding:0 0 12px;display:flex;flex-direction:column;gap:8px}
+.help p{margin:0}
+.help ul,.help ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.help b{color:var(--fg)}
+.helplink{font:600 13px var(--ui);color:var(--accent);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:3px 10px;display:inline-block;margin-top:6px}
 footer{font-size:12px;color:var(--muted);text-align:center;padding:4px 8px}
 </style>
 </head>
@@ -99,6 +110,7 @@ footer{font-size:12px;color:var(--muted);text-align:center;padding:4px 8px}
     <div style="text-align:right">
       <div class="conn"><span class="dot" id="dot"></span><span id="connTxt">spajanje</span></div>
       <div class="vsub num" id="updated" style="font-size:12px"></div>
+      <a class="helplink" href="#upute">Upute</a>
     </div>
   </header>
 
@@ -164,6 +176,139 @@ footer{font-size:12px;color:var(--muted);text-align:center;padding:4px 8px}
     <div class="out" id="calcOut"></div>
     <div id="calcAlert"></div>
     <p class="note">Likvidacija je okvirna (izolirana margina, održavanje 0,4 %). Točan iznos uvijek provjeri na MEXC-u prije ulaza.</p>
+  </section>
+
+  <section id="upute" aria-labelledby="h-help">
+    <h2 id="h-help">Upute</h2>
+
+    <details>
+      <summary>Kako koristiti aplikaciju u 5 koraka</summary>
+      <div class="help">
+        <ol>
+          <li><b>Pogledaj ocjenu signala.</b> Ona ti kaže je li tržište trenutno nagnuto gore, dolje ili nema smjera.</li>
+          <li><b>Provjeri tablicu "Trend po okvirima".</b> Najjači su trenuci kad se 1h i 4h slažu. Trade u smjeru 4h trenda ima više smisla nego protiv njega.</li>
+          <li><b>Pogledaj graf.</b> Gdje je najbliža podrška (zelena crta) i najbliži otpor (crvena crta)? Ne ulazi long tik ispod otpora ni short tik iznad podrške.</li>
+          <li><b>Provjeri futures podatke.</b> Ako su svi long (visok funding i long/short omjer), budi oprezan s longom.</li>
+          <li><b>Prije ulaza ispuni kalkulator.</b> Upiši stop-loss i take-profit pa provjeri veličinu pozicije, likvidaciju i omjer rizik/nagrada. Tek onda otvori poziciju na MEXC-u.</li>
+        </ol>
+      </div>
+    </details>
+
+    <details>
+      <summary>Ocjena signala (−100 do +100)</summary>
+      <div class="help">
+        <p>Zbraja trend na 5 vremenskih okvira (70 % težine) i futures podatke (30 %). Duži okviri imaju veću težinu: 4h i 1d vrijede četiri puta više od 5m.</p>
+        <ul>
+          <li><b class="up">+50 i više:</b> jako bikovski, većina signala gleda gore.</li>
+          <li><b class="up">+20 do +50:</b> blago bikovski.</li>
+          <li><b class="warn">−20 do +20:</b> neutralno, tržište nema jasan smjer. Najčešće je najbolje ne raditi ništa.</li>
+          <li><b class="down">−20 do −50:</b> blago medvjeđi.</li>
+          <li><b class="down">−50 i manje:</b> jako medvjeđi.</li>
+        </ul>
+        <p>Ispod ocjene piše <b>zašto</b> je takva. ▲ gura gore, ▼ gura dolje. Ocjena <b>nije vjerojatnost</b>: +60 ne znači 60 % šanse za rast.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Graf, EMA crte i razine</summary>
+      <div class="help">
+        <p>Gumbi 5m–1d mijenjaju vremenski okvir grafa. Prstima možeš zumirati i pomicati graf.</p>
+        <ul>
+          <li><b>EMA 20 (žuta) i EMA 50 (plava):</b> kratkoročni trend. Kad je žuta iznad plave, kratkoročno se ide gore.</li>
+          <li><b>EMA 200 (ljubičasta):</b> glavni trend. Cijena iznad nje znači da je tržište općenito jako, ispod nje da je slabo.</li>
+          <li><b>Zelene crte "S":</b> podrške, mjesta gdje je cijena prije odbijala prema gore.</li>
+          <li><b>Crvene crte "R":</b> otpori, mjesta gdje je cijena prije odbijala prema dolje.</li>
+          <li><b>Broj uz razinu (npr. ×5):</b> koliko puta je cijena dotaknula tu razinu. Više dodira znači jaču razinu.</li>
+          <li><b>Strelice na svijećama:</b> pronađeni paterni (vidi "Paterni i razine").</li>
+        </ul>
+      </div>
+    </details>
+
+    <details>
+      <summary>Trend po okvirima</summary>
+      <div class="help">
+        <ul>
+          <li><b>Trend:</b> Gore, Dolje ili Bočno, prema EMA crtama, MACD-u i RSI-ju.</li>
+          <li><b>RSI:</b> snaga kretanja od 0 do 100. Iznad 70 (žuto) je prekupljeno, rast je možda pretjerao. Ispod 30 je preprodano.</li>
+          <li><b>MACD:</b> ▲ znači da zamah gleda gore, ▼ dolje. "Jača" ili "slabi" pokazuje raste li taj zamah ili se gasi.</li>
+          <li><b>vs EMA200:</b> koliko je cijena iznad ili ispod glavnog trenda.</li>
+        </ul>
+        <p>Kad sva četiri kraća okvira kažu "Bočno", tržište se kreće u uskom rasponu. Tada probijanje razine često krene naglo, ali ne znaš na koju stranu.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Futures tržište</summary>
+      <div class="help">
+        <ul>
+          <li><b>Funding:</b> svakih 8 sati longovi plaćaju shortove ili obrnuto. Normalno je oko +0,01 %. <b>Iznad +0,03 %</b> previše je ljudi long i cijena često padne da ih izbaci. <b>Negativan</b> funding znači da su mnogi short, pa je moguć nagli skok (short squeeze).</li>
+          <li><b>Open interest (OI):</b> ukupna vrijednost otvorenih pozicija. Kad OI raste zajedno s cijenom, ulazi novi novac i trend je zdrav. Kad cijena raste a OI pada, rast dolazi od zatvaranja shortova i obično je slabiji.</li>
+          <li><b>Long/short (računi):</b> koliko je malih tradera long naspram short. Kad su svi na jednoj strani, tržište često ode na drugu. Zato je ovo kontra signal.</li>
+          <li><b>Top traderi:</b> isti omjer, ali samo za najveće račune. Kad se razlikuju od mase, više vjeruj njima.</li>
+          <li><b>Taker kupnja/prodaja:</b> tko agresivno ulazi tržišnim nalozima. Iznad 1 jače kupuju, ispod 1 jače prodaju.</li>
+          <li><b>Order book ±1 %:</b> omjer kupovnih i prodajnih naloga blizu cijene. Iznad 1 ima više kupaca koji čekaju. Taj se broj brzo mijenja, pa ga uzmi s rezervom.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details>
+      <summary>Paterni i razine</summary>
+      <div class="help">
+        <p>Odnosi se na okvir koji je odabran na grafu.</p>
+        <ul>
+          <li><b>RSI divergencija:</b> cijena napravi novo dno, a RSI ne. Prodavači se troše i moguć je okret gore. Vrijedi i obrnuto za vrhove.</li>
+          <li><b>Engulfing:</b> svijeća koja potpuno "proguta" prethodnu. Znak da je jedna strana preuzela kontrolu.</li>
+          <li><b>Hammer / shooting star:</b> dugi fitilj pokazuje da je tržište odbilo cijenu u tom smjeru.</li>
+          <li><b>ATR:</b> prosječan raspon jedne svijeće. Stop-loss uži od 1 ATR-a obično te izbaci zbog običnog šuma.</li>
+        </ul>
+        <p>Paterni su jači kad se pojave <b>na podršci ili otporu</b> i kad se slažu s višim okvirom.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Kalkulator pozicije</summary>
+      <div class="help">
+        <ol>
+          <li>Odaberi <b>Long</b> ili <b>Short</b>.</li>
+          <li>Upiši <b>kapital</b> (koliko imaš na futures računu), <b>rizik</b> (koliko % kapitala si spreman izgubiti ako te izbaci stop) i <b>polugu</b> koju koristiš na MEXC-u. Aplikacija ih pamti.</li>
+          <li>Dodirni <b>"Popuni prijedlog"</b>. Aplikacija stavi stop iza najbliže razine ili na 1,5 ATR-a, a take-profit na sljedeću razinu. Brojeve možeš ručno promijeniti.</li>
+          <li>Pročitaj rezultat:
+            <ul>
+              <li><b>Veličina pozicije:</b> koliko otvaraš na MEXC-u (u $ ili BTC).</li>
+              <li><b>Gubitak na stopu:</b> koliko gubiš ako stop pogodi. Uvijek je jednak tvom riziku.</li>
+              <li><b>Likvidacija:</b> mora biti <b>dalje od stop-lossa</b>. Ako nije, dobit ćeš crveno upozorenje.</li>
+              <li><b>Omjer rizik/nagrada:</b> 1 : 2 znači da riskiraš 10 $ da zaradiš 20 $. Ispod 1 : 1,5 se dugoročno rijetko isplati.</li>
+            </ul>
+          </li>
+        </ol>
+        <p><b>Važno:</b> poluga ne mijenja koliko gubiš na stopu, nego samo koliko margine vežeš. Pravi rizik određuje udaljenost stop-lossa i veličina pozicije.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Zlatna pravila</summary>
+      <div class="help">
+        <ul>
+          <li>Rizik po tradeu <b>1–2 %</b> kapitala. S 2 % moraš izgubiti 10 tradeova zaredom da izgubiš petinu računa.</li>
+          <li><b>Uvijek postavi stop-loss na MEXC-u</b> čim otvoriš poziciju, ne samo u glavi.</li>
+          <li>Kad je ocjena između −20 i +20, <b>ne moraš tradati</b>. Čekanje je također pozicija.</li>
+          <li>Ne povećavaj polugu da bi "vratio" gubitak.</li>
+          <li>Aplikacija pomaže pri odluci, ali ne zna budućnost. Vijesti (FED, ETF, velike likvidacije) mogu poništiti sve signale u minuti.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details>
+      <summary>Status veze i osvježavanje</summary>
+      <div class="help">
+        <ul>
+          <li><b class="up">● uživo:</b> cijena stiže svake sekunde.</li>
+          <li><b class="warn">● uživo (svake 2 s):</b> rezervni način, cijena se osvježava svake 2 sekunde. Sve radi normalno.</li>
+          <li><b class="down">● spajanje…:</b> nema veze s burzom. Provjeri internet.</li>
+        </ul>
+        <p>Analiza, trend po okvirima i futures podaci osvježavaju se svake minute, a odmah i kad se vratiš u aplikaciju.</p>
+      </div>
+    </details>
   </section>
 
   <footer>Podaci: Binance USDⓈ-M futures (javni API). Cijena na MEXC-u razlikuje se tek za nekoliko dolara.<br>Ovo je alat za analizu, ne financijski savjet.</footer>
@@ -526,33 +671,74 @@ $("tfs").addEventListener("click", e => {
   renderTfButtons(); renderChart(true); connectWS();
 });
 
-// ---------- WebSocket (live cijena i svijeća) ----------
-let ws, wsTimer;
+// ---------- Live cijena: WebSocket, a ako ne prolazi, brzo REST osvježavanje ----------
+// Binance je premjestio futures streamove na /market putanju; stara adresa ostaje kao rezerva.
+const WS_URLS = ["wss://fstream.binance.com/market/stream?streams=", WS];
+let ws, wsTimer, wsIdx = 0, wsLive = false, pollTimer;
 function connectWS() {
   clearTimeout(wsTimer);
-  if (ws) { ws.onclose = null; ws.close(); }
+  if (ws) { ws.onclose = null; ws.onmessage = null; ws.close(); }
+  wsLive = false;
   const s = SYMBOL.toLowerCase();
-  ws = new WebSocket(WS + `${s}@markPrice@1s/${s}@kline_${state.tf}`);
-  ws.onopen = () => setConn(true);
-  ws.onclose = () => { setConn(false); wsTimer = setTimeout(connectWS, 3000); };
-  ws.onerror = () => ws.close();
-  ws.onmessage = ev => {
-    const { data } = JSON.parse(ev.data);
-    if (data.e === "markPriceUpdate") {
-      state.price = +data.p;
-      if (state.fut.prem) { state.fut.prem.lastFundingRate = data.r; state.fut.prem.nextFundingTime = data.T; }
-      renderHeader();
-    } else if (data.e === "kline") {
-      const k = data.k, c = state.candles[state.tf];
-      if (!c || k.i !== state.tf) return;
-      const nk = { t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, v: +k.v };
-      if (c[c.length - 1].t === nk.t) c[c.length - 1] = nk; else { c.push(nk); if (c.length > 600) c.shift(); }
-      candleS.update(bar(nk));
-      if (k.x) { state.analysis[state.tf] = analyze(c); renderChart(false); renderMTF(); renderVerdict(); }
+  const sock = ws = new WebSocket(WS_URLS[wsIdx] + `${s}@markPrice@1s/${s}@kline_${state.tf}`);
+  let gotData = false;
+  sock.onclose = () => {
+    wsLive = false; setConn();
+    if (!gotData) wsIdx = (wsIdx + 1) % WS_URLS.length;
+    wsTimer = setTimeout(connectWS, gotData ? 2000 : 5000);
+  };
+  sock.onerror = () => sock.close();
+  sock.onmessage = ev => {
+    const msg = JSON.parse(ev.data), data = msg.data;
+    if (!data) return;
+    if (!gotData) { gotData = true; wsLive = true; setConn(); }
+    if (data.e === "markPriceUpdate") onMark(+data.p, data.r, data.T);
+    else if (data.e === "kline" && data.k.i === state.tf) {
+      const k = data.k;
+      onKline({ t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, v: +k.v }, k.x);
     }
   };
+  setConn();
 }
-function setConn(on) { $("dot").className = "dot " + (on ? "on" : "off"); $("connTxt").textContent = on ? "uživo" : "ponovno spajanje"; }
+function onMark(p, r, T) {
+  state.price = p;
+  if (state.fut.prem) { state.fut.prem.lastFundingRate = r; state.fut.prem.nextFundingTime = T; }
+  renderHeader();
+}
+function onKline(nk, closed) {
+  const c = state.candles[state.tf];
+  if (!c || !c.length) return;
+  const lastT = c[c.length - 1].t;
+  if (nk.t < lastT) return;
+  const opened = nk.t > lastT;
+  if (opened) { c.push(nk); if (c.length > 600) c.shift(); } else c[c.length - 1] = nk;
+  candleS.update(bar(nk));
+  if (closed || opened) { state.analysis[state.tf] = analyze(c); renderChart(false); renderMTF(); renderVerdict(); }
+}
+// Rezerva: dok WebSocket ne radi, cijenu i zadnju svijeću povlačimo svake 2 sekunde.
+async function poll() {
+  clearTimeout(pollTimer);
+  if (!wsLive && document.visibilityState === "visible") {
+    try {
+      const tf = state.tf;
+      const [prem, kl] = await Promise.all([
+        getJSON(`/fapi/v1/premiumIndex?symbol=${SYMBOL}`),
+        getJSON(`/fapi/v1/klines?symbol=${SYMBOL}&interval=${tf}&limit=2`),
+      ]);
+      pollOk = true;
+      onMark(+prem.markPrice, prem.lastFundingRate, prem.nextFundingTime);
+      if (tf === state.tf) kl.forEach(k => onKline({ t: k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }, false));
+    } catch (e) { pollOk = false; }
+    setConn();
+  }
+  pollTimer = setTimeout(poll, 2000);
+}
+let pollOk = false;
+function setConn() {
+  const st = wsLive ? ["on", "uživo"] : pollOk ? ["slow", "uživo (svake 2 s)"] : ["off", "spajanje…"];
+  $("dot").className = "dot " + st[0];
+  $("connTxt").textContent = st[1];
+}
 
 // ---------- Osvježavanje ----------
 let busy = false;
@@ -641,6 +827,7 @@ $("fill").addEventListener("click", fillSuggestion);
   try { initChart(); } catch (e) { console.error(e); }
   refreshAll(true);
   connectWS();
+  poll();
   setInterval(() => refreshAll(false), 60000);
 })();
 </script>
