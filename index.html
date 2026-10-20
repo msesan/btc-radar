@@ -97,6 +97,11 @@ details[open] summary::after{content:"−"}
 .help ul,.help ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
 .help b{color:var(--fg)}
 .helplink{font:600 13px var(--ui);color:var(--accent);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:3px 10px;display:inline-block;margin-top:6px}
+.planBody{display:flex;flex-direction:column;gap:10px;font-size:15px}
+.planBody p{margin:0}
+.planBody .ph{font-size:16px}
+.planBody .pn{font-size:12px;color:var(--muted)}
+.planBody b{font-weight:700}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chips button{font:600 14px var(--num);color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:6px;padding:6px 10px;cursor:pointer}
 .chips button.on{color:var(--bg);background:var(--fg);border-color:var(--fg)}
@@ -145,6 +150,11 @@ footer{font-size:12px;color:var(--muted);text-align:center;padding:4px 8px}
     </div>
     <ul class="reasons" id="reasons"></ul>
     <p class="note">Ocjena od −100 do +100 zbraja signale. To nije vjerojatnost i nije savjet za ulaz. Prava kalibracija dolazi s backtestom (Faza 3).</p>
+  </section>
+
+  <section aria-labelledby="h-plan">
+    <h2 id="h-plan">Plan za <span id="planTf">15m</span></h2>
+    <div class="planBody" id="planBody"><p class="vsub">Računam scenarije…</p></div>
   </section>
 
   <section aria-labelledby="h-chart">
@@ -255,6 +265,20 @@ footer{font-size:12px;color:var(--muted);text-align:center;padding:4px 8px}
           <li><b>Provjeri futures podatke.</b> Ako su svi long (visok funding i long/short omjer), budi oprezan s longom.</li>
           <li><b>Prije ulaza ispuni kalkulator.</b> Upiši stop-loss i take-profit pa provjeri veličinu pozicije, likvidaciju i omjer rizik/nagrada. Tek onda otvori poziciju na MEXC-u.</li>
         </ol>
+      </div>
+    </details>
+
+    <details>
+      <summary>Plan (scenariji ako–onda)</summary>
+      <div class="help">
+        <p>Plan za okvir koji je izabran na grafu: što je sljedeće ako cijena probije otpor, što ako probije podršku i što ako ostane između.</p>
+        <ul>
+          <li><b>🔼 / 🔽:</b> razina koju treba probiti, sljedeća meta i cijena na kojoj probijanje nije uspjelo.</li>
+          <li><b>↔️ Raspon:</b> ima li između podrške i otpora dovoljno prostora za trade.</li>
+          <li><b>🧭 Smjer:</b> koji je scenarij vjerojatniji prema trendu ovog i višeg okvira (5m i 15m gledaju 1h, 1h gleda 4h, 4h gleda 1d). Vjerojatniji scenarij je naveden prvi.</li>
+        </ul>
+        <p>Plan ne kaže <b>kada</b> će se nešto dogoditi, nego <b>što ako</b>. Probijanje vrijedi tek kad se svijeća zatvori iza razine, a ne kad je fitilj samo dotakne.</p>
+        <p>Isti plan dobiješ na Telegramu naredbom <b>/plan</b> ili <b>/plan 1h</b>.</p>
       </div>
     </details>
 
@@ -390,7 +414,7 @@ footer{font-size:12px;color:var(--muted);text-align:center;padding:4px 8px}
     </details>
   </section>
 
-  <footer>Podaci: Binance USDⓈ-M futures (javni API). Cijena na MEXC-u razlikuje se tek za nekoliko dolara.<br>Ovo je alat za analizu, ne financijski savjet. · v3</footer>
+  <footer>Podaci: Binance USDⓈ-M futures (javni API). Cijena na MEXC-u razlikuje se tek za nekoliko dolara.<br>Ovo je alat za analizu, ne financijski savjet. · v4</footer>
 </main>
 
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
@@ -458,8 +482,9 @@ function pivots(c, w) {
     let isH = true, isL = true;
     for (let j = i - w; j <= i + w; j++) {
       if (j === i) continue;
-      if (c[j].h >= c[i].h) isH = false;
-      if (c[j].l <= c[i].l) isL = false;
+      // Kod jednakih vrhova pivot je prvi od njih.
+      if (j < i ? c[j].h >= c[i].h : c[j].h > c[i].h) isH = false;
+      if (j < i ? c[j].l <= c[i].l : c[j].l < c[i].l) isL = false;
     }
     if (isH) hi.push(i);
     if (isL) lo.push(i);
@@ -474,7 +499,7 @@ function levels(c, atrNow) {
   const tol = atrNow * 0.6, groups = [];
   for (const p of pts) {
     const g = groups[groups.length - 1];
-    if (g && p - g.max <= tol) { g.sum += p; g.n++; g.max = p; } else groups.push({ sum: p, n: 1, max: p });
+    if (g && p - g.min <= tol) { g.sum += p; g.n++; } else groups.push({ sum: p, n: 1, min: p });
   }
   const price = c[c.length - 1].c;
   const lv = groups.map(g => ({ price: g.sum / g.n, touches: g.n }));
@@ -730,6 +755,16 @@ function renderChart(fit) {
     .sort((x, y) => x.time - y.time));
   if (fit) chart.timeScale().setVisibleLogicalRange({ from: c.length - 120, to: c.length + 5 });
   renderPatterns(lv, pats, a);
+  renderPlan();
+}
+let PLAN = null;
+function renderPlan() {
+  const c = state.candles[state.tf], a = state.analysis[state.tf];
+  $("planTf").textContent = state.tf;
+  if (!PLAN || !c || !a) return;
+  const htf = PLAN.HIGHER_TF[state.tf];
+  const p = PLAN.buildPlan({ tf: state.tf, candles: c, score: a.score, rsi: a.R, higherTf: htf, higherScore: htf ? state.analysis[htf]?.score : null });
+  $("planBody").innerHTML = `<p class="ph">${p.head}</p>` + p.lines.map(l => `<p>${l}</p>`).join("") + `<p class="pn">${p.note}</p>`;
 }
 function renderPatterns(lv, pats, a) {
   $("patTf").textContent = state.tf;
@@ -969,6 +1004,7 @@ async function alInit() {
   try { initChart(); } catch (e) { console.error(e); }
   refreshAll(true);
   alInit();
+  import("./plan.js?v=4").then(m => { PLAN = m; renderPlan(); }).catch(e => { console.error(e); $("planBody").innerHTML = '<p class="err">Plan se nije učitao. Osvježi aplikaciju.</p>'; });
   connectWS();
   poll();
   setInterval(() => refreshAll(false), 60000);

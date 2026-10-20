@@ -94,6 +94,7 @@ Gotovo.
 
 | Naredba | Što radi |
 |---|---|
+| `/plan` ili `/plan 1h` | scenariji ako–onda za izabrani okvir (zadano 15m) |
 | `/status` | trenutna cijena, ocjena i postavke |
 | `/prag 600` | obavijest kad BTC napravi 600 $ |
 | `/prozor 5` | u koliko minuta |

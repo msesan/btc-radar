@@ -3,7 +3,7 @@ name: Postavi čuvara (Cloudflare)
 on:
   push:
     branches: [main]
-    paths: ["worker/**", ".github/workflows/deploy-worker.yml"]
+    paths: ["worker/**", "plan.js", ".github/workflows/deploy-worker.yml"]
   workflow_dispatch:
 
 permissions:
@@ -85,6 +85,7 @@ jobs:
             --data-urlencode 'allowed_updates=["message"]' | grep -q '"ok":true' \
             || { echo "::error::Telegram nije prihvatio povezivanje. Provjeri TELEGRAM_TOKEN."; exit 1; }
           curl -fsS "https://api.telegram.org/bot$TELEGRAM_TOKEN/setMyCommands" -H "Content-Type: application/json" -d '{"commands":[
+            {"command":"plan","description":"Scenariji za 15m, npr. /plan 1h"},
             {"command":"status","description":"Cijena, ocjena i postavke"},
             {"command":"prag","description":"Iznos za nagli pomak, npr. /prag 600"},
             {"command":"prozor","description":"Broj minuta, npr. /prozor 5"},

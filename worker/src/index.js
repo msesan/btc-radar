@@ -1,6 +1,8 @@
 // BTC Radar čuvar: svake minute provjerava BTC i šalje obavijesti na Telegram.
 // Postavke se mijenjaju iz aplikacije (POST /settings s PIN-om) ili Telegram naredbama.
 
+import { buildPlan, planText, HIGHER_TF } from "../../plan.js";
+
 const APP_URL = "https://msesan.github.io/btc-radar/";
 const DEFAULTS = { moveOn: true, moveUsd: 400, moveMin: 5, signalOn: true, signalThr: 50, paused: false };
 const LIMITS = { moveUsd: [50, 20000], moveMin: [1, 60], signalThr: [20, 90] };
@@ -175,6 +177,14 @@ async function signal() {
   return { score, tf, up: vals.filter(x => x > 0).length, down: vals.filter(x => x < 0).length, rsi1h, funding: fr, price: fund?.price || price };
 }
 
+async function planFor(tf) {
+  const htf = HIGHER_TF[tf];
+  const [c, hc] = await Promise.all([candles(tf, 500), htf ? candles(htf, 300) : null]);
+  const a = tfScore(c);
+  const p = buildPlan({ tf, candles: c, score: a.score, rsi: a.rsi, higherTf: htf, higherScore: hc ? tfScore(hc).score : null });
+  return planText(p) + `\n\n<a href="${APP_URL}">Otvori BTC Radar</a>`;
+}
+
 // ---------- Postavke ----------
 async function getSettings(env) {
   const s = JSON.parse((await env.KV.get("settings")) || "{}");
@@ -248,6 +258,10 @@ async function onTelegram(req, env) {
   else if (c === "/status") {
     const g = await signal().catch(() => null);
     reply = g ? `BTC: <b>${usd(g.price)}</b>\nOcjena trenda: <b>${g.score > 0 ? "+" : ""}${g.score}</b> (${g.up} okvira gore, ${g.down} dolje)\n\n${settingsText(s)}` : `Ne mogu dohvatiti podatke s burze.\n\n${settingsText(s)}`;
+  } else if (c === "/plan") {
+    const tf = (arg || "15m").toLowerCase();
+    if (!TFS.includes(tf)) reply = "Okvir mora biti jedan od: 5m, 15m, 1h, 4h, 1d. Npr. <code>/plan 1h</code>";
+    else reply = await planFor(tf).catch(e => "Ne mogu dohvatiti podatke s burze. Pokušaj ponovno za minutu.");
   } else if (c === "/prag") {
     if (!Number(arg)) reply = "Napiši iznos u dolarima, npr. <code>/prag 600</code>";
     else { await save({ moveUsd: arg, moveOn: true }); reply = `Prag za nagli pomak: <b>${usd(s.moveUsd)}</b> u ${s.moveMin} min.`; }
@@ -263,7 +277,7 @@ async function onTelegram(req, env) {
   await send(env, chatId, reply);
   return new Response("ok");
 }
-const HELP = "<b>Naredbe</b>\n/status: cijena, ocjena i postavke\n/prag 600: obavijest kad BTC napravi 600 $\n/prozor 5: u koliko minuta\n/signal on ili /signal off\n/pauza i /nastavi\n\nSve to možeš mijenjati i u aplikaciji pod Obavijesti.";
+const HELP = "<b>Naredbe</b>\n/plan: scenariji za 15m (ili /plan 1h)\n/status: cijena, ocjena i postavke\n/prag 600: obavijest kad BTC napravi 600 $\n/prozor 5: u koliko minuta\n/signal on ili /signal off\n/pauza i /nastavi\n\nSve to možeš mijenjati i u aplikaciji pod Obavijesti.";
 
 async function send(env, chat, text) {
   const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_TOKEN}/sendMessage`, {
