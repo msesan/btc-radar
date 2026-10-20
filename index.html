@@ -25,6 +25,7 @@
   color-scheme:dark;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--fg)}
 body{font-family:var(--ui);font-size:16px;line-height:1.35;
   padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));
@@ -96,6 +97,25 @@ details[open] summary::after{content:"−"}
 .help ul,.help ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
 .help b{color:var(--fg)}
 .helplink{font:600 13px var(--ui);color:var(--accent);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:3px 10px;display:inline-block;margin-top:6px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{font:600 14px var(--num);color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:6px;padding:6px 10px;cursor:pointer}
+.chips button.on{color:var(--bg);background:var(--fg);border-color:var(--fg)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .t{font-weight:600}
+.row .d{font-size:13px;color:var(--muted)}
+.sw{appearance:none;-webkit-appearance:none;flex:none;width:48px;height:28px;border-radius:14px;background:var(--line);position:relative;cursor:pointer;transition:background .15s;margin:0}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--fg);transition:transform .15s}
+.sw:checked{background:var(--bull)}
+.sw:checked::after{transform:translateX(20px)}
+.sub{display:flex;flex-direction:column;gap:8px;padding:0 0 12px}
+.sub .lab{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.btn{font:600 15px var(--ui);color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:6px;padding:10px 12px;cursor:pointer;flex:1}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.btns{display:flex;gap:8px;margin-top:6px}
+.msg{font-size:14px;margin-top:8px;min-height:1em}
+.msg.ok{color:var(--bull)} .msg.bad{color:var(--warn)}
+@media (prefers-reduced-motion:reduce){.sw,.sw::after{transition:none}}
 footer{font-size:12px;color:var(--muted);text-align:center;padding:4px 8px}
 </style>
 </head>
@@ -176,6 +196,50 @@ footer{font-size:12px;color:var(--muted);text-align:center;padding:4px 8px}
     <div class="out" id="calcOut"></div>
     <div id="calcAlert"></div>
     <p class="note">Likvidacija je okvirna (izolirana margina, održavanje 0,4 %). Točan iznos uvijek provjeri na MEXC-u prije ulaza.</p>
+  </section>
+
+  <section id="obavijesti" aria-labelledby="h-alerts">
+    <h2 id="h-alerts">Obavijesti na Telegram</h2>
+    <div id="alNoWorker" class="help" hidden>
+      <p>Čuvar još nije postavljen. Kad postaviš Cloudflare i Telegram (upute su u repozitoriju, datoteka UPUTE-OBAVIJESTI.md), ovdje ćeš upravljati obavijestima.</p>
+    </div>
+    <div id="alLogin" hidden>
+      <div class="form" style="grid-template-columns:1fr auto;align-items:end">
+        <label for="alPin">PIN čuvara<input id="alPin" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN koji si upisao na GitHubu"></label>
+        <button type="button" class="btn primary" id="alConnect">Spoji</button>
+      </div>
+    </div>
+    <div id="alPanel" hidden>
+      <div class="row">
+        <div><div class="t">Nagli pomak cijene</div><div class="d">Kad BTC padne ili naraste za zadani iznos</div></div>
+        <input type="checkbox" class="sw" id="alMoveOn" aria-label="Nagli pomak cijene">
+      </div>
+      <div class="sub" id="alMoveSub">
+        <span class="lab">Iznos u dolarima</span>
+        <div class="chips" id="alUsdChips"></div>
+        <label for="alUsd" style="flex-direction:row;align-items:center;gap:8px">ili upiši<input id="alUsd" type="number" inputmode="numeric" min="50" step="50" style="max-width:120px"> $</label>
+        <span class="lab">U koliko minuta</span>
+        <div class="chips" id="alMinChips"></div>
+      </div>
+      <div class="row">
+        <div><div class="t">Jak signal trenda</div><div class="d">Kad se većina okvira poklopi u istom smjeru</div></div>
+        <input type="checkbox" class="sw" id="alSigOn" aria-label="Jak signal trenda">
+      </div>
+      <div class="sub" id="alSigSub">
+        <span class="lab">Ocjena barem (gore ili dolje)</span>
+        <div class="chips" id="alThrChips"></div>
+        <span class="d" style="font-size:13px;color:var(--muted)">Uz to moraju se slagati barem 4 od 5 okvira. Viši broj znači rjeđe, ali jače signale.</span>
+      </div>
+      <div class="row">
+        <div><div class="t">Pauziraj sve obavijesti</div><div class="d">Npr. dok spavaš ili ne tradaš</div></div>
+        <input type="checkbox" class="sw" id="alPaused" aria-label="Pauziraj sve obavijesti">
+      </div>
+      <div class="btns">
+        <button type="button" class="btn primary" id="alSave">Spremi postavke</button>
+        <button type="button" class="btn" id="alTest">Probna poruka</button>
+      </div>
+    </div>
+    <div class="msg" id="alMsg" role="status"></div>
   </section>
 
   <section id="upute" aria-labelledby="h-help">
@@ -299,6 +363,21 @@ footer{font-size:12px;color:var(--muted);text-align:center;padding:4px 8px}
     </details>
 
     <details>
+      <summary>Obavijesti na Telegram</summary>
+      <div class="help">
+        <p>Čuvar na internetu svake minute provjerava BTC na MEXC-u, i kad je mobitel zaključan, te ti šalje poruku na Telegram.</p>
+        <ul>
+          <li><b>Nagli pomak:</b> stiže kad BTC padne ili naraste za tvoj iznos unutar zadanih minuta, npr. 400 $ u 5 min. Ista vrsta obavijesti stiže najviše jednom u 15 minuta.</li>
+          <li><b>Jak signal trenda:</b> stiže kad ocjena trenda prijeđe tvoj prag (npr. +50 ili −50) i kad se barem 4 od 5 okvira slažu. Ponovno stiže tek kad se trend smiri pa opet ojača.</li>
+          <li><b>Pauza:</b> privremeno gasi sve obavijesti, a postavke ostaju spremljene.</li>
+          <li><b>Probna poruka:</b> provjerava da sve radi.</li>
+        </ul>
+        <p>Isto možeš i iz Telegrama: <b>/prag 600</b>, <b>/prozor 5</b>, <b>/signal off</b>, <b>/pauza</b>, <b>/nastavi</b>, <b>/status</b>.</p>
+        <p>Ocjena u obavijesti računa se iz trenda i fundinga na MEXC-u, pa se može malo razlikovati od ocjene u aplikaciji.</p>
+      </div>
+    </details>
+
+    <details>
       <summary>Status veze i osvježavanje</summary>
       <div class="help">
         <ul>
@@ -311,7 +390,7 @@ footer{font-size:12px;color:var(--muted);text-align:center;padding:4px 8px}
     </details>
   </section>
 
-  <footer>Podaci: Binance USDⓈ-M futures (javni API). Cijena na MEXC-u razlikuje se tek za nekoliko dolara.<br>Ovo je alat za analizu, ne financijski savjet.</footer>
+  <footer>Podaci: Binance USDⓈ-M futures (javni API). Cijena na MEXC-u razlikuje se tek za nekoliko dolara.<br>Ovo je alat za analizu, ne financijski savjet. · v3</footer>
 </main>
 
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
@@ -818,6 +897,69 @@ $("sideLong").addEventListener("click", () => { setSide("long"); fillSuggestion(
 $("sideShort").addEventListener("click", () => { setSide("short"); fillSuggestion(); });
 $("fill").addEventListener("click", fillSuggestion);
 
+// ---------- Obavijesti (čuvar na Cloudflareu) ----------
+const AL = { url: null, pin: null, s: null };
+const USD_CHIPS = [300, 400, 500, 700, 1000], MIN_CHIPS = [1, 3, 5, 15], THR_CHIPS = [40, 50, 60, 70];
+function alMsg(text, ok) { $("alMsg").textContent = text || ""; $("alMsg").className = "msg " + (ok ? "ok" : "bad"); }
+function alShow(view) { ["alNoWorker", "alLogin", "alPanel"].forEach(id => $(id).hidden = id !== view); }
+async function alCall(path, body) {
+  const res = await fetch(AL.url + path, {
+    method: body ? "POST" : "GET",
+    headers: { "X-Pin": AL.pin, ...(body ? { "Content-Type": "application/json" } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || "Čuvar se ne javlja (" + res.status + ").");
+  return data;
+}
+function chips(id, values, cur, suffix, onPick) {
+  $(id).innerHTML = values.map(v => `<button type="button" data-v="${v}" class="${v === cur ? "on" : ""}">${v.toLocaleString("hr-HR")}${suffix}</button>`).join("");
+  $(id).onclick = e => { const v = +e.target.dataset?.v; if (v) onPick(v); };
+}
+function alRender() {
+  const s = AL.s;
+  $("alMoveOn").checked = s.moveOn; $("alSigOn").checked = s.signalOn; $("alPaused").checked = s.paused;
+  $("alMoveSub").hidden = !s.moveOn; $("alSigSub").hidden = !s.signalOn;
+  $("alUsd").value = s.moveUsd;
+  chips("alUsdChips", USD_CHIPS, s.moveUsd, " $", v => { s.moveUsd = v; alRender(); });
+  chips("alMinChips", MIN_CHIPS, s.moveMin, " min", v => { s.moveMin = v; alRender(); });
+  chips("alThrChips", THR_CHIPS, s.signalThr, "", v => { s.signalThr = v; alRender(); });
+}
+async function alLoad() {
+  try {
+    const d = await alCall("/settings");
+    AL.s = d.settings; alShow("alPanel"); alRender();
+    alMsg(d.telegram ? "Povezano. Obavijesti stižu na Telegram." : "Čuvar radi, ali Telegram još nije povezan. Otvori svog bota i pošalji /start.", d.telegram);
+    save("pin", AL.pin);
+  } catch (e) {
+    alShow("alLogin"); alMsg(e.message, false);
+  }
+}
+$("alConnect").addEventListener("click", () => { AL.pin = $("alPin").value.trim(); if (AL.pin) alLoad(); });
+$("alMoveOn").addEventListener("change", e => { AL.s.moveOn = e.target.checked; alRender(); });
+$("alSigOn").addEventListener("change", e => { AL.s.signalOn = e.target.checked; alRender(); });
+$("alPaused").addEventListener("change", e => { AL.s.paused = e.target.checked; });
+$("alUsd").addEventListener("input", e => { const v = parseInt(e.target.value, 10); if (v > 0) { AL.s.moveUsd = v; chips("alUsdChips", USD_CHIPS, v, " $", x => { AL.s.moveUsd = x; alRender(); }); } });
+$("alSave").addEventListener("click", async () => {
+  alMsg("Spremam…", true);
+  try { const d = await alCall("/settings", AL.s); AL.s = d.settings; alRender(); alMsg("Spremljeno. " + (AL.s.paused ? "Obavijesti su pauzirane." : `Javit ću ti kad BTC napravi ${AL.s.moveUsd.toLocaleString("hr-HR")} $ u ${AL.s.moveMin} min.`), true); }
+  catch (e) { alMsg(e.message, false); }
+});
+$("alTest").addEventListener("click", async () => {
+  alMsg("Šaljem…", true);
+  try { await alCall("/test", {}); alMsg("Poslano. Provjeri Telegram.", true); }
+  catch (e) { alMsg(e.message, false); }
+});
+async function alInit() {
+  try {
+    const cfg = await fetch("config.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null);
+    AL.url = cfg?.workerUrl ? cfg.workerUrl.replace(/\/$/, "") : null;
+  } catch (e) { AL.url = null; }
+  if (!AL.url) { alShow("alNoWorker"); return; }
+  AL.pin = load("pin");
+  if (AL.pin) alLoad(); else alShow("alLogin");
+}
+
 // ---------- Start ----------
 (function start() {
   const tf = load("tf"); if (TFS.includes(tf)) state.tf = tf;
@@ -826,6 +968,7 @@ $("fill").addEventListener("click", fillSuggestion);
   renderTfButtons(); drawGauge(0);
   try { initChart(); } catch (e) { console.error(e); }
   refreshAll(true);
+  alInit();
   connectWS();
   poll();
   setInterval(() => refreshAll(false), 60000);

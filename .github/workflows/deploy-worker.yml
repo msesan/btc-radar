@@ -1,0 +1,106 @@
+name: Postavi čuvara (Cloudflare)
+
+on:
+  push:
+    branches: [main]
+    paths: ["worker/**", ".github/workflows/deploy-worker.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      ALERT_PIN: ${{ secrets.ALERT_PIN }}
+      WRANGLER: npx --yes wrangler@4.145.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Provjera tajni
+        run: |
+          missing=""
+          for n in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID TELEGRAM_TOKEN ALERT_PIN; do
+            [ -z "${!n}" ] && missing="$missing $n"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Nedostaju tajne u Settings → Secrets and variables → Actions:$missing"
+            exit 1
+          fi
+
+      - name: KV spremište (napravi ako ne postoji)
+        run: |
+          find_id() { $WRANGLER kv namespace list 2>/dev/null | node -e '
+            let s = ""; process.stdin.on("data", d => s += d).on("end", () => {
+              const i = s.search(/^\[/m); if (i < 0) return;
+              const n = JSON.parse(s.slice(i)).find(x => x.title.endsWith("btc_radar_state"));
+              if (n) console.log(n.id);
+            });'; }
+          ID=$(find_id)
+          if [ -z "$ID" ]; then
+            $WRANGLER kv namespace create btc_radar_state
+            ID=$(find_id)
+          fi
+          [ -z "$ID" ] && { echo "::error::Ne mogu napraviti KV spremište. Provjeri da API token ima dozvolu Workers KV Storage: Edit."; exit 1; }
+          sed -i "s/KV_ID/$ID/" wrangler.toml
+          echo "KV: $ID"
+
+      - name: Objavi čuvara
+        run: |
+          set -o pipefail
+          $WRANGLER deploy 2>&1 | tee deploy.log
+          URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' deploy.log | head -1)
+          if [ -z "$URL" ]; then
+            echo "::error::Nema workers.dev adrese. U Cloudflareu otvori Workers & Pages jednom da se napravi tvoja workers.dev poddomena, pa pokreni ponovno."
+            exit 1
+          fi
+          echo "URL=$URL" >> "$GITHUB_ENV"
+
+      - name: Tajne čuvara
+        run: |
+          printf '%s' "$TELEGRAM_TOKEN" | $WRANGLER secret put TELEGRAM_TOKEN
+          printf '%s' "$ALERT_PIN" | $WRANGLER secret put ALERT_PIN
+
+      - name: Poveži Telegram bota
+        run: |
+          HOOK_SECRET=$(printf '%s' "$ALERT_PIN" | sha256sum | cut -c1-32)
+          curl -fsS "https://api.telegram.org/bot$TELEGRAM_TOKEN/setWebhook" \
+            --data-urlencode "url=$URL/telegram" \
+            --data-urlencode "secret_token=$HOOK_SECRET" \
+            --data-urlencode 'allowed_updates=["message"]' | grep -q '"ok":true' \
+            || { echo "::error::Telegram nije prihvatio povezivanje. Provjeri TELEGRAM_TOKEN."; exit 1; }
+          curl -fsS "https://api.telegram.org/bot$TELEGRAM_TOKEN/setMyCommands" -H "Content-Type: application/json" -d '{"commands":[
+            {"command":"status","description":"Cijena, ocjena i postavke"},
+            {"command":"prag","description":"Iznos za nagli pomak, npr. /prag 600"},
+            {"command":"prozor","description":"Broj minuta, npr. /prozor 5"},
+            {"command":"signal","description":"Signal trenda: /signal on ili off"},
+            {"command":"pauza","description":"Pauziraj obavijesti"},
+            {"command":"nastavi","description":"Ponovno uključi obavijesti"}]}' > /dev/null
+          echo "Telegram povezan na $URL/telegram"
+
+      - name: Spremi adresu čuvara za aplikaciju
+        working-directory: .
+        run: |
+          printf '{ "workerUrl": "%s" }\n' "$URL" > config.json
+          if ! git diff --quiet -- config.json 2>/dev/null || ! git ls-files --error-unmatch config.json >/dev/null 2>&1; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add config.json
+            git commit -m "Adresa čuvara: $URL"
+            git push
+          fi

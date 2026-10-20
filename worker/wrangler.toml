@@ -1,0 +1,12 @@
+name = "btc-radar-alert"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[triggers]
+crons = ["* * * * *"]
+
+# ID se upisuje automatski u GitHub Actions (deploy-worker.yml).
+[[kv_namespaces]]
+binding = "KV"
+id = "KV_ID"
